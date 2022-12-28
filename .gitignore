@@ -1,0 +1,6 @@
+.venv/
+.idea/
+dist/
+build/
+django_doc.egg-info/
+__pycache__/
