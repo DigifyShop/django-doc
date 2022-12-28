@@ -8,4 +8,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         main.run(f'{settings.BASE_DIR}/')
-        self.stdout.write(self.style.SUCCESS('Documentation Collected Successfully.'))
+        txt = 'Documentation Collected Successfully. Run the documentation with `mkdocs serve`'
+        self.stdout.write(self.style.SUCCESS(txt))

@@ -62,14 +62,46 @@ class Class:
                                         continue
                                 values.append(val)
                 case ast.Assign(value=ast.Constant(value=_value)):
-                    values = [_value]
+                    values = _value
                 case ast.Assign(value=ast.Attribute(value=ast.Attribute(value=ast.Name(id=_value)))):
                     values = [_value]
                 case ast.Assign(value=ast.Attribute(value=ast.Name(id=_value))):
                     values = [_value]
                 case ast.Assign(value=ast.Name(id=_value)):
                     values = _value
+
+                # Handling Model Fields
+                case ast.Assign(
+                    targets=[ast.Name(id=name)],
+                    value=ast.Call(func=ast.Attribute(value=ast.Name(id=models), attr=field), keywords=[*keywords])
+                ):
+                    # ex: name = models.CharField(max_length=64)
+                    _keywords = ''
+                    for key in keywords:
+                        match key.value:
+                            case ast.Call(args=[ast.Constant(value=value)]):
+                                # ex: verbose_name = _("description")
+                                pass
+                            case ast.Constant(value=value):
+                                # ex: default=0
+                                pass
+                            case ast.Attribute(value=ast.Name(id=_val1), attr=_val2):
+                                # ex: on_delete=models.PROTECT
+                                value = f'{_val1}.{_val2}'
+                            case ast.Name(id=value):
+                                # ex: choices=VISIBILITY_TYPE
+                                pass
+                            case _type:
+                                print(f'{_type} Not Supported. (line: {_type.lineno})')
+                                continue
+                        _keywords += f'{key.arg}={value} '
+                    values = f'{field}: {_keywords}'
+
+                case ast.Expr():
+                    # We handle it in self._get_expression() so continue
+                    continue
                 case _type:
+                    # print(ast.dump(_type, indent=4))
                     # print(f'{_type} Not Supported. (line: {_type.lineno})')
                     continue
 
@@ -83,7 +115,7 @@ class Class:
             if isinstance(n, ast.Expr):
                 expression += '\n'.join([s.strip() for s in n.value.value.split('\n')])
 
-        return expression[1:]
+        return expression
 
     @property
     def permission_classes(self):
@@ -102,7 +134,7 @@ class Class:
         return self.assigns.get('pagination_class')
 
     def __str__(self):
-        return f'Class(name={self.name}, methods={self.methods}, assigns={self.assigns})'
+        return f'Class(name={self.name})'
 
     __repr__ = __str__
 
@@ -155,6 +187,11 @@ class MakeDocstring:
     def pagination_docs(cls, c):
         if pagination := c.pagination_class:
             return f'\n**Paginations:**`{pagination}`\n'
+
+    @classmethod
+    def assigns_docs(cls, c):
+        # We should handle model fields here
+        return '\n\n'.join(f'`{k}` --> {v}' for k, v in c.assigns.items())
 
     @classmethod
     def models_docs(cls, c):
@@ -214,10 +251,19 @@ class MakeDocstring:
             docstring_body += self.pagination_docs(c) or ''
             docstring_body += self.models_docs(c) or ''
             docstring_body += self.methods_docs(c) or ''
+            docstring_body += self.assigns_docs(c) or ''
 
             # Body
             if docstring_body:
-                self.docstring += f'## {c.name}\n\n' + docstring_body + '\n\n'
+                # TODO: Git Address
+                git = 'https://github.com/'
+                # TODO: Branch
+                branch = 'master'
+
+                rel_path = self.file_path.replace(self.base_directory, '')
+                url = f'{git}-/blob/{branch}/{rel_path}#L{c.class_def.lineno}'
+                class_name = f'## [{c.name}]({url})\n\n'
+                self.docstring += class_name + docstring_body + '\n\n'
         return self.docstring
 
     def write_doc(self):
@@ -254,6 +300,17 @@ def find_files(path: str):
 
 
 def run(base_directory: str):
+    if base_directory[-1] != '/':
+        base_directory += '/'
     python_files = find_files(base_directory)
+
+    with open(f'{base_directory}mkdocs.yml', 'w') as file:
+        txt = f"""site_name: Documentations
+docs_dir: "{base_directory}docs{base_directory}"
+
+theme:
+  name: material
+"""
+        file.write(txt)
     for file in python_files:
         MakeDocstring(file, base_directory=base_directory)

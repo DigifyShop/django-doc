@@ -1,2 +1,4 @@
-- Add `django_doc` to your installed_apps
+- Django- Add `django_doc` to your `INSTALLED_APPS`
 - Run Python `python manage.py collectdoc`
+- Run `pip install mkdocs mkdocs-material`
+- Run `mkdocs serve`
