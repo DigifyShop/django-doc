@@ -1,5 +1,7 @@
-import ast
 import os
+import ast
+import yaml
+
 
 
 class Class:
@@ -92,7 +94,7 @@ class Class:
                                 # ex: choices=VISIBILITY_TYPE
                                 pass
                             case _type:
-                                print(f'{_type} Not Supported. (line: {_type.lineno})')
+                                # print(f'{_type} Not Supported. (line: {_type.lineno})')
                                 continue
                         _keywords += f'{key.arg}={value} '
                     values = f'{field}: {_keywords}'
@@ -161,9 +163,10 @@ class Parse:
 
 
 class MakeDocstring:
-    def __init__(self, file_path: str, base_directory: str):
+    def __init__(self, file_path: str, base_directory: str, repo_url: str):
         self.base_directory = base_directory
         self.file_path = file_path
+        self.repo_url = repo_url
         self.parsed_file = Parse(file_path)
         self.make_docstring()
         self.write_doc()
@@ -255,13 +258,8 @@ class MakeDocstring:
 
             # Body
             if docstring_body:
-                # TODO: Git Address
-                git = 'https://github.com/'
-                # TODO: Branch
-                branch = 'master'
-
                 rel_path = self.file_path.replace(self.base_directory, '')
-                url = f'{git}-/blob/{branch}/{rel_path}#L{c.class_def.lineno}'
+                url = f'{self.repo_url}{rel_path}#L{c.class_def.lineno}'
                 class_name = f'## [{c.name}]({url})\n\n'
                 self.docstring += class_name + docstring_body + '\n\n'
         return self.docstring
@@ -299,18 +297,36 @@ def find_files(path: str):
     return files
 
 
+def read_or_create_mkdocs(base_directory: str) -> str:
+    mkdocs_path = f'{base_directory}mkdocs.yml'
+
+    # Create If Not Exists
+    if not os.path.exists(mkdocs_path):
+        with open(mkdocs_path, 'w') as file:
+            txt = f"""site_name: Documentations
+        docs_dir: "{base_directory}docs{base_directory}"
+        repo_url: "https://github.com/DigifyShop/django-doc/blog/master/"
+        
+        theme:
+          name: material
+        """
+            file.write(txt)
+
+    # Read MkDocs
+    with open(mkdocs_path, 'r') as f:
+        data = yaml.safe_load(f)
+        repo_url = data.get('repo_url')
+    print('ok:', repo_url)
+    return repo_url
+
+
 def run(base_directory: str):
     if base_directory[-1] != '/':
         base_directory += '/'
     python_files = find_files(base_directory)
 
-    with open(f'{base_directory}mkdocs.yml', 'w') as file:
-        txt = f"""site_name: Documentations
-docs_dir: "{base_directory}docs{base_directory}"
-
-theme:
-  name: material
-"""
-        file.write(txt)
+    if repo_url := read_or_create_mkdocs(base_directory) is None:
+        return 'Replace the sample "repo_url" in mkdocs.yml and try again.'
     for file in python_files:
-        MakeDocstring(file, base_directory=base_directory)
+        MakeDocstring(file, base_directory=base_directory, repo_url=repo_url)
+
