@@ -7,9 +7,9 @@ class Command(BaseCommand):
     help = 'Collecting Docstrings of Project'
 
     def handle(self, *args, **options):
-        text = main.run(f'{settings.BASE_DIR}/')
+        text = main.run(f"{settings.BASE_DIR}/")
         if text is None:
-            text = 'Documentation Collected Successfully. Run the documentation with `mkdocs serve`'
+            text = "Documentation Collected Successfully. Run the documentation with `mkdocs serve`"
             message = self.style.SUCCESS(text)
         else:
             message = self.style.ERROR(text)
